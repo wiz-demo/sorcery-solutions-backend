@@ -192,6 +192,9 @@ jobs:
             ${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}:develop-${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
 
+      - name: Pull image for scan
+        run: docker pull ${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}:${{ vars.IMAGE_TAG }} 
+
       - name: Run Wiz Security Scan for Develop
         run: |
           curl -Lo wizcli https://wizcli.app.wiz.io/latest/wizcli-linux-amd64

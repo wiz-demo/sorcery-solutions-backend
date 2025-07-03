@@ -30,9 +30,14 @@ jobs:
   check_develop:
     runs-on: ubuntu-latest
     outputs:
-      develop_exists: ${{ steps.check.outputs.develop_exists }}
+      develop_exists: ${{ steps.check-outcome.outputs.develop_exists }}
     
     steps:
+      - name: Configure 1Password Service Account
+        uses: 1password/load-secrets-action/configure@581a835fb51b8e7ec56b71cf2ffddd7e68bb25e0
+        with:
+          service-account-token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          
       - name: Check if develop environment exists in 1Password
         id: check
         uses: 1password/load-secrets-action@581a835fb51b8e7ec56b71cf2ffddd7e68bb25e0
@@ -40,9 +45,10 @@ jobs:
         with:
           export-env: false
         env:
-          DEVELOP_REGISTRY: op://wiz-demo/scenarios_gar-registry-develop/registry_url
+          DEVELOP_REGISTRY: op://wiz-demo/scenarios_gar-registry-develop/registryUrl
       
       - name: Set develop availability
+        id: check-outcome
         run: |
           if [[ "${{ steps.check.outcome }}" == "success" ]]; then
             echo "develop_exists=true" >> $GITHUB_OUTPUT
@@ -64,10 +70,10 @@ jobs:
   #       with:
   #         export-env: true
   #       env:
-  #         IMAGE_REGISTRY: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/registry_url
-  #         REGISTRY_REGION: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/registry_region
-  #         WIF_PROVIDER: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/workload_identity_provider
-  #         WIF_SERVICE_ACCOUNT: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/pusher_service_account
+  #         IMAGE_REGISTRY: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/registryUrl
+  #         REGISTRY_REGION: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/registryRegion
+  #         WIF_PROVIDER: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/workloadIdentityProvider
+  #         WIF_SERVICE_ACCOUNT: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/pusherServiceAccount
   #         WIZ_CLIENT_ID: op://wiz-demo/tenant_adv-${{ env.DEPLOY_ENV == 'staging' && 'stg' || '' }}-sa/username
   #         WIZ_CLIENT_SECRET: op://wiz-demo/tenant_adv-${{ env.DEPLOY_ENV == 'staging' && 'stg' || '' }}-sa/credential
 
@@ -130,17 +136,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
+      - name: Configure 1Password Service Account
+        uses: 1password/load-secrets-action/configure@581a835fb51b8e7ec56b71cf2ffddd7e68bb25e0
+        with:
+          service-account-token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+
       - name: Get Develop Secret Details
         uses: 1password/load-secrets-action@581a835fb51b8e7ec56b71cf2ffddd7e68bb25e0
         with:
           export-env: true
         env:
-          IMAGE_REGISTRY: op://wiz-demo/scenarios_gar-registry-develop/registry_url
-          REGISTRY_REGION: op://wiz-demo/scenarios_gar-registry-develop/registry_region
-          WIF_PROVIDER: op://wiz-demo/scenarios_gar-registry-develop/workload_identity_provider
-          WIF_SERVICE_ACCOUNT: op://wiz-demo/scenarios_gar-registry-develop/pusher_service_account
-          WIZ_CLIENT_ID: op://wiz-demo/tenant_adv-dev-sa/username
-          WIZ_CLIENT_SECRET: op://wiz-demo/tenant_adv-dev-sa/credential
+          IMAGE_REGISTRY: op://wiz-demo/scenarios_gar-registry-develop/registryUrl
+          REGISTRY_REGION: op://wiz-demo/scenarios_gar-registry-develop/registryRegion
+          WIF_PROVIDER: op://wiz-demo/scenarios_gar-registry-develop/workloadIdentityProvider
+          WIF_SERVICE_ACCOUNT: op://wiz-demo/scenarios_gar-registry-develop/pusherServiceAccount
+          WIZ_CLIENT_ID: op://wiz-demo/tenant_adv-stg-sa/username
+          WIZ_CLIENT_SECRET: op://wiz-demo/tenant_adv-stg-sa/credential
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435

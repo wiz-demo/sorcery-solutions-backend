@@ -2,93 +2,204 @@ name: Build/Scan/Push Containers
 
 on:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment (overrides branch-based logic)'
+        required: false
+        type: choice
+        options:
+        - staging
+        - production
+        - develop
   push:
     branches:
-      - main
-  pull_request:
-    branches:
-      - main
+      - staging      
+      - main        
 
 permissions:
   id-token: write
   contents: read
 
-jobs:
-  docker_build:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - dockerfile: ./
-            image: ${{ vars.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}:${{ vars.IMAGE_TAG }}
+env:
+  DEPLOY_ENV: ${{ 
+    github.event_name == 'workflow_dispatch' && github.event.inputs.environment || 
+    (github.ref == 'refs/heads/main' && 'production') ||
+    'staging' }}
 
+jobs:
+  check_develop:
+    runs-on: ubuntu-latest
+    outputs:
+      develop_exists: ${{ steps.check.outputs.develop_exists }}
+    
+    steps:
+      - name: Check if develop environment exists in 1Password
+        id: check
+        uses: 1password/load-secrets-action@581a835fb51b8e7ec56b71cf2ffddd7e68bb25e0
+        continue-on-error: true
+        with:
+          export-env: false
+        env:
+          DEVELOP_REGISTRY: op://wiz-demo/scenarios_gar-registry-develop/registry_url
+      
+      - name: Set develop availability
+        run: |
+          if [[ "${{ steps.check.outcome }}" == "success" ]]; then
+            echo "develop_exists=true" >> $GITHUB_OUTPUT
+            echo "✅ Develop environment available"
+          else
+            echo "develop_exists=false" >> $GITHUB_OUTPUT
+            echo "ℹ️  Develop environment not available (registry may be deleted)"
+          fi
+
+  # build_main:
+  #   runs-on: ubuntu-latest
+    
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+  #     - name: Get Secret Details
+  #       uses: 1password/load-secrets-action@581a835fb51b8e7ec56b71cf2ffddd7e68bb25e0
+  #       with:
+  #         export-env: true
+  #       env:
+  #         IMAGE_REGISTRY: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/registry_url
+  #         REGISTRY_REGION: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/registry_region
+  #         WIF_PROVIDER: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/workload_identity_provider
+  #         WIF_SERVICE_ACCOUNT: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/pusher_service_account
+  #         WIZ_CLIENT_ID: op://wiz-demo/tenant_adv-${{ env.DEPLOY_ENV == 'staging' && 'stg' || '' }}-sa/username
+  #         WIZ_CLIENT_SECRET: op://wiz-demo/tenant_adv-${{ env.DEPLOY_ENV == 'staging' && 'stg' || '' }}-sa/credential
+
+  #     - name: Set up Docker Buildx
+  #       uses: docker/setup-buildx-action@v3
+
+  #     - name: Collect Docker Metadata
+  #       id: meta
+  #       uses: docker/metadata-action@v5
+  #       with:
+  #         images: ${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}
+  #         tags: |
+  #           type=ref,event=branch
+  #           type=ref,event=pr
+  #           type=semver,pattern={{version}}
+  #           type=semver,pattern={{major}}.{{minor}}
+  #           type=raw,value=${{ env.DEPLOY_ENV }}-{{sha}}
+
+  #     - id: auth
+  #       name: Authenticate to Google Cloud
+  #       uses: google-github-actions/auth@v2
+  #       with:
+  #         workload_identity_provider: ${{ env.WIF_PROVIDER }}
+  #         service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
+
+  #     - name: Login to Container Registry
+  #       run: gcloud auth configure-docker ${{ env.REGISTRY_REGION }}-docker.pkg.dev
+        
+  #     - name: Build Docker Image
+  #       id: build-image
+  #       uses: docker/build-push-action@v6
+  #       with:
+  #         cache-from: type=gha
+  #         cache-to: type=gha,mode=max
+  #         context: ./
+  #         platforms: linux/amd64
+  #         push: true
+  #         tags: |
+  #           ${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}:${{ vars.IMAGE_TAG }}
+  #           ${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}:${{ env.DEPLOY_ENV }}-${{ github.sha }}
+  #         labels: ${{ steps.meta.outputs.labels }}
+
+  #     - name: Run Wiz Security Scan
+  #       run: |
+  #         curl -Lo wizcli https://wizcli.app.wiz.io/latest/wizcli-linux-amd64
+  #         chmod +x wizcli
+  #         ./wizcli auth --id "${{ env.WIZ_CLIENT_ID }}" --secret "${{ env.WIZ_CLIENT_SECRET }}"
+  #         ./wizcli docker scan --image "${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}:${{ vars.IMAGE_TAG }}" --dockerfile "./Dockerfile"
+  #         ./wizcli docker tag --image "${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}:${{ vars.IMAGE_TAG }}"
+  #       env:
+  #         WIZ_ENV: "demo"
+  #       continue-on-error: true
+
+  build_develop:
+    runs-on: ubuntu-latest
+    needs: check_develop
+    if: needs.check_develop.outputs.develop_exists == 'true'
+    
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Get Develop Secret Details
+        uses: 1password/load-secrets-action@581a835fb51b8e7ec56b71cf2ffddd7e68bb25e0
+        with:
+          export-env: true
+        env:
+          IMAGE_REGISTRY: op://wiz-demo/scenarios_gar-registry-develop/registry_url
+          REGISTRY_REGION: op://wiz-demo/scenarios_gar-registry-develop/registry_region
+          WIF_PROVIDER: op://wiz-demo/scenarios_gar-registry-develop/workload_identity_provider
+          WIF_SERVICE_ACCOUNT: op://wiz-demo/scenarios_gar-registry-develop/pusher_service_account
+          WIZ_CLIENT_ID: op://wiz-demo/tenant_adv-dev-sa/username
+          WIZ_CLIENT_SECRET: op://wiz-demo/tenant_adv-dev-sa/credential
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435
 
       - name: Collect Docker Metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804
         with:
-          images: ${{ matrix.image }}
+          images: ${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=develop-{{sha}}
 
-      - name: Configure AWS Credentials
-        if: github.event_name == 'push'
-        uses: aws-actions/configure-aws-credentials@v4
+      - id: auth
+        name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@ba79af03959ebeac9769e648f473a284504d9193
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE }}
-          aws-region: ${{ vars.AWS_REGION }}
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
 
       - name: Login to Container Registry
-        if: github.event_name == 'push'
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ vars.IMAGE_REGISTRY }}
-
-      - name: Login to Base Image Registry (if needed)
-        if: ${{ vars.BASE_IMAGE_REGISTRY != '' && vars.BASE_IMAGE_REGISTRY != null }}
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ vars.BASE_IMAGE_REGISTRY }}
-          username: ${{ secrets.BASE_IMAGE_REGISTRY_USERNAME }}
-          password: ${{ secrets.BASE_IMAGE_REGISTRY_PASSWORD }}
-
+        run: gcloud auth configure-docker ${{ env.REGISTRY_REGION }}-docker.pkg.dev
+        
       - name: Build Docker Image
         id: build-image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83
         with:
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          context: ${{ matrix.dockerfile }}
-          load: ${{ github.event_name == 'pull_request' }}
+          context: ./
           platforms: linux/amd64
-          push: ${{ github.event_name == 'push' }}
-          tags: ${{ matrix.image }}
+          push: true
+          tags: |
+            ${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}:${{ vars.IMAGE_TAG }}
+            ${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}:develop-${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
 
-      - name: Pull image for scan
-        if: github.event_name == 'push'
-        run: docker pull ${{ matrix.image }}
-
-      - name: Integrate CI data with Wiz
+      - name: Run Wiz Security Scan for Develop
         run: |
-          if [[ ! -z "${{ vars.WIZ_ENV }}" && "${{ vars.WIZ_ENV }}" != "app" ]]; then export WIZ_ENV=${{ vars.WIZ_ENV }}; fi
           curl -Lo wizcli https://wizcli.app.wiz.io/latest/wizcli-linux-amd64
           chmod +x wizcli
-          ./wizcli auth --id "${{ secrets.WIZ_CLIENT_ID }}" --secret "${{ secrets.WIZ_CLIENT_SECRET }}"
-          ./wizcli docker scan --image "${{ matrix.image }}" --dockerfile "${{ matrix.dockerfile }}Dockerfile"
-          if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
-            ./wizcli docker tag --image "${{ matrix.image }}"
-          fi
+          ./wizcli auth --id "${{ env.WIZ_CLIENT_ID }}" --secret "${{ env.WIZ_CLIENT_SECRET }}"
+          ./wizcli docker scan --image "${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}:${{ vars.IMAGE_TAG }}" --dockerfile "./Dockerfile"
+          ./wizcli docker tag --image "${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}:${{ vars.IMAGE_TAG }}"
         env:
-          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          WIZ_ENV: "demo"
         continue-on-error: true
+
+  # Notify when develop is skipped
+  notify_develop_skipped:
+    runs-on: ubuntu-latest
+    needs: check_develop
+    if: needs.check_develop.outputs.develop_exists == 'false'
+    
+    steps:
+      - name: Notify develop environment skipped
+        run: |
+          echo "::notice::Develop environment skipped - registry not available in 1Password"
+          echo "This is expected when the develop registry has been deleted"

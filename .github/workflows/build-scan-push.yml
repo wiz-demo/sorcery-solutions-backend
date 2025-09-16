@@ -67,6 +67,7 @@ jobs:
           WIZ_OS_PASSWORD: op://wiz-demo/tenant_csatest-wizos-registry-credentials/credential
           WIZ_OS_CLIENT_ID: op://wiz-demo/tenant_adv-stg-wizos-apk-credentials/username
           WIZ_OS_CLIENT_SECRET: op://wiz-demo/tenant_adv-stg-wizos-apk-credentials/credential
+          WIZCLI_URL: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/wizcliUrl
           # WIZ_OS_CLIENT_ID: op://wiz-demo/tenant_adv-${{ env.DEPLOY_ENV == 'staging' && 'stg-' || '' }}-wizos-apk-credentials/username
           # WIZ_OS_CLIENT_SECRET: op://wiz-demo/tenant_adv-${{ env.DEPLOY_ENV == 'staging' && 'stg-' || '' }}-wizos-apk-credentials/credential
 
@@ -154,8 +155,8 @@ jobs:
       - name: Install Wiz CLI
         if: success() || (failure() && env.DEPLOY_ENV == 'develop')
         run: |
-          echo "Downloading Wiz CLI $version..."
-          curl -o wizcli https://wizcli.app.wiz.io/experimental/v1/${version}/wizcli-linux-amd64 && chmod +x wizcli
+          echo "Downloading Wiz CLI..."
+          curl -o wizcli ${{.env.WIZCLI_URL}} && chmod +x wizcli
           echo "WIZCLI_PATH=$(pwd)/wizcli" >> $GITHUB_ENV
 
       # - name: Authenticate Wiz CLI

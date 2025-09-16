@@ -177,7 +177,7 @@ jobs:
       - name: Tag Image in Wiz
         if: success() || (failure() && env.DEPLOY_ENV == 'develop')
         run: |
-          sudo -E ${{ env.WIZCLI_PATH }} tag "${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ vars.IMAGE_TAG }}"
+          sudo -E ${{ env.WIZCLI_PATH }} tag "${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ vars.IMAGE_TAG }}" --digest "${{ steps.build-image.outputs.digest }}"
         env:
           WIZ_ENV: "demo"
         continue-on-error: true

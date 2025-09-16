@@ -117,10 +117,9 @@ jobs:
           workload_identity_provider: ${{ env.WIF_PROVIDER }}
           service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
           token_format: 'access_token'
+          audience: 'https://token.actions.githubusercontent.com'
         continue-on-error: ${{ env.DEPLOY_ENV == 'develop' }}
 
-      - name: Set up Cloud SDK
-        uses: 'google-github-actions/setup-gcloud@v2'
 
       - name: Log in to Google Artifact Registry
         uses: docker/login-action@v3

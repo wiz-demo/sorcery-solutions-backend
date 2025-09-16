@@ -9,189 +9,183 @@ on:
         type: choice
         options:
         - staging
-        - production
+        - main
         - develop
+      versions:
+        description: 'WizCLI version to use for scanning'
+        required: true
+        default: '1.8.0'
   push:
     branches:
-      - staging      
       - main
+      - staging
       - develop
+    paths:
+      - app/**
+      - dockerfiles/**
 
 permissions:
   id-token: write
   contents: read
 
 env:
-  DEPLOY_ENV: ${{ 
-    github.event_name == 'workflow_dispatch' && github.event.inputs.environment || 
+  DEPLOY_ENV: ${{
+    github.event_name == 'workflow_dispatch' && github.event.inputs.environment ||
     (github.ref == 'refs/heads/main' && 'production') ||
     (github.ref == 'refs/heads/develop' && 'develop') ||
     'staging' }}
 
 jobs:
-  build_main:
+  build-and-scan:
     runs-on: ubuntu-latest
-    if: github.ref != 'refs/heads/develop'
-    
+    strategy:
+      matrix:
+        dockerfile: [debian, wizos]
+
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
 
       - name: Configure 1Password Service Account
         uses: 1password/load-secrets-action/configure@581a835fb51b8e7ec56b71cf2ffddd7e68bb25e0
         with:
           service-account-token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
 
-      - name: Get Secret Details
+      - name: Load Environment Secrets
         uses: 1password/load-secrets-action@581a835fb51b8e7ec56b71cf2ffddd7e68bb25e0
         with:
           export-env: true
         env:
           IMAGE_REGISTRY: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/registryUrl
           REGISTRY_REGION: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/registryRegion
-          WIF_PROVIDER: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/workloadIdentityProvider
-          WIF_SERVICE_ACCOUNT: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/pusherServiceAccount
+          WIF_PROVIDER: projects/649658276695/locations/global/workloadIdentityPools/github-pool1/providers/github-provider
+          WIF_SERVICE_ACCOUNT: gar-pusher@clgcporg156-p001.iam.gserviceaccount.com
+#          WIF_PROVIDER: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/workloadIdentityProvider
+#          WIF_SERVICE_ACCOUNT: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/pusherServiceAccount
           WIZ_CLIENT_ID: op://wiz-demo/tenant_adv-${{ env.DEPLOY_ENV == 'staging' && 'stg-' || '' }}sa/username
           WIZ_CLIENT_SECRET: op://wiz-demo/tenant_adv-${{ env.DEPLOY_ENV == 'staging' && 'stg-' || '' }}sa/credential
+          WIZ_OS_REGISTRY: op://wiz-demo/tenant_csatest-wizos-registry-credentials/registryUrl
+          WIZ_OS_USER: op://wiz-demo/tenant_csatest-wizos-registry-credentials/username
+          WIZ_OS_PASSWORD: op://wiz-demo/tenant_csatest-wizos-registry-credentials/credential
+          WIZ_OS_CLIENT_ID: op://wiz-demo/tenant_adv-stg-wizos-apk-credentials/username
+          WIZ_OS_CLIENT_SECRET: op://wiz-demo/tenant_adv-stg-wizos-apk-credentials/credential
+          # WIZ_OS_CLIENT_ID: op://wiz-demo/tenant_adv-${{ env.DEPLOY_ENV == 'staging' && 'stg-' || '' }}-wizos-apk-credentials/username
+          # WIZ_OS_CLIENT_SECRET: op://wiz-demo/tenant_adv-${{ env.DEPLOY_ENV == 'staging' && 'stg-' || '' }}-wizos-apk-credentials/credential
+
+      - name: Cache Wiz CLI downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/wizcli
+            wizcli-*
+          key: ${{ runner.os }}-wizcli-downloads-${{ hashFiles('**/wizcli-dynamic-comparison.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-wizcli-downloads-
+
+      - name: Cache Wiz configuration and rules
+        uses: actions/cache@v4
+        with:
+          path: ~/.wiz/test_clusterFiles
+          key: ${{ runner.os }}-wiz-config-${{ hashFiles('**/wizcli-dynamic-comparison.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-wiz-config-
+
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@f95db51fddba0c2d1ec667646a06c2ce06100226
 
-      - name: Collect Docker Metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=${{ env.DEPLOY_ENV }}-{{sha}}
-
-      - id: auth
-        name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ env.WIF_PROVIDER }}
-          service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
-
-      - name: Login to Container Registry
-        run: gcloud auth configure-docker ${{ env.REGISTRY_REGION }}-docker.pkg.dev
-        
-      - name: Build Docker Image
-        id: build-image
-        uses: docker/build-push-action@v6
-        with:
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          context: ./
-          platforms: linux/amd64
-          push: true
-          tags: |
-            ${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}:${{ vars.IMAGE_TAG }}
-            ${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}:${{ env.DEPLOY_ENV }}-${{ github.sha }}
-          labels: ${{ steps.meta.outputs.labels }}
-
-      - name: Pull image for scan
-        run: docker pull ${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}:${{ vars.IMAGE_TAG }} 
-        continue-on-error: true
-
-      - name: Run Wiz Security Scan
+      - name: Build Info
         run: |
-          curl -Lo wizcli https://wizcli.app.wiz.io/latest/wizcli-linux-amd64
-          chmod +x wizcli
-          ./wizcli auth --id "${{ env.WIZ_CLIENT_ID }}" --secret "${{ env.WIZ_CLIENT_SECRET }}"
-          ./wizcli docker scan --image "${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}:${{ vars.IMAGE_TAG }}" --dockerfile "./Dockerfile"
-          ./wizcli docker tag --image "${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}:${{ vars.IMAGE_TAG }}"
-        env:
-          WIZ_ENV: "demo"
-        continue-on-error: true
-
-  build_develop:
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/develop' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'develop')
-    
-    steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-
-      - name: Configure 1Password Service Account
-        uses: 1password/load-secrets-action/configure@581a835fb51b8e7ec56b71cf2ffddd7e68bb25e0
-        with:
-          service-account-token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-
-      - name: Get Develop Secret Details
-        uses: 1password/load-secrets-action@581a835fb51b8e7ec56b71cf2ffddd7e68bb25e0
-        with:
-          export-env: true
-        env:
-          IMAGE_REGISTRY: op://wiz-demo/scenarios_gar-registry-develop/registryUrl
-          REGISTRY_REGION: op://wiz-demo/scenarios_gar-registry-develop/registryRegion
-          WIF_PROVIDER: op://wiz-demo/scenarios_gar-registry-develop/workloadIdentityProvider
-          WIF_SERVICE_ACCOUNT: op://wiz-demo/scenarios_gar-registry-develop/pusherServiceAccount
-          WIZ_CLIENT_ID: op://wiz-demo/tenant_adv-stg-sa/username
-          WIZ_CLIENT_SECRET: op://wiz-demo/tenant_adv-stg-sa/credential
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435
+          echo "Building ${{ matrix.dockerfile }} variant for ${{ env.DEPLOY_ENV }} environment"
+          echo "Dockerfile: ./dockerfiles/${{ matrix.dockerfile }}/Dockerfile"
+          echo "Image: ${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}"
 
       - name: Collect Docker Metadata
         id: meta
-        uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804
+        uses: docker/metadata-action@96383f45573cb7c3e6877137f96c57d28f3c663f
         with:
-          images: ${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}
+          images: ${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=develop-{{sha}}
+            type=raw,value=${{ env.DEPLOY_ENV }}-${{ matrix.dockerfile }}-{{sha}}
 
-      - id: auth
-        name: Authenticate to Google Cloud
+      - name: Authenticate to Google Cloud
+        id: auth
         uses: google-github-actions/auth@ba79af03959ebeac9769e648f473a284504d9193
         with:
           workload_identity_provider: ${{ env.WIF_PROVIDER }}
           service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
-        continue-on-error: true
+        continue-on-error: ${{ env.DEPLOY_ENV == 'develop' }}
 
       - name: Login to Container Registry
         run: gcloud auth configure-docker ${{ env.REGISTRY_REGION }}-docker.pkg.dev
+        continue-on-error: ${{ env.DEPLOY_ENV == 'develop' }}
+
+      - name: Login to Wiz OS Container Registry
+        run: docker login ${{ env.WIZ_OS_REGISTRY }} -u ${{ env.WIZ_OS_USER }} -p ${{ env.WIZ_OS_PASSWORD }}
         continue-on-error: true
-        
-      - name: Build Docker Image
+
+      - name: Build and Push Docker Image
         id: build-image
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83
         with:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           context: ./
+          file: ./dockerfiles/${{ matrix.dockerfile }}/Dockerfile
           platforms: linux/amd64
           push: true
           tags: |
-            ${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}:${{ vars.IMAGE_TAG }}
-            ${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}:develop-${{ github.sha }}
+            ${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ vars.IMAGE_TAG }}
+            ${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ env.DEPLOY_ENV }}-${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
+          secrets: |
+            ${{ matrix.dockerfile == 'wizos' && 'id=WIZOS_CLIENT_ID,env=WIZ_OS_CLIENT_ID' || '' }}
+            ${{ matrix.dockerfile == 'wizos' && 'id=WIZOS_CLIENT_SECRET,env=WIZ_OS_CLIENT_SECRET' || '' }}
+        continue-on-error: ${{ env.DEPLOY_ENV == 'develop' }}
+
+      - name: Pull Image for Scanning
+        if: success() || (failure() && env.DEPLOY_ENV == 'develop')
+        run: docker pull ${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ vars.IMAGE_TAG }}
         continue-on-error: true
 
-      - name: Pull image for scan
-        run: docker pull ${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}:${{ vars.IMAGE_TAG }} 
-        continue-on-error: true
-
-      - name: Run Wiz Security Scan for Develop
+      - name: Install Wiz CLI
+        if: success() || (failure() && env.DEPLOY_ENV == 'develop')
         run: |
-          curl -Lo wizcli https://wizcli.app.wiz.io/latest/wizcli-linux-amd64
-          chmod +x wizcli
-          ./wizcli auth --id "${{ env.WIZ_CLIENT_ID }}" --secret "${{ env.WIZ_CLIENT_SECRET }}"
-          ./wizcli docker scan --image "${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}:${{ vars.IMAGE_TAG }}" --dockerfile "./Dockerfile"
-          ./wizcli docker tag --image "${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}:${{ vars.IMAGE_TAG }}"
+          echo "Downloading Wiz CLI $version..."
+          curl -o wizcli https://wizcli.app.wiz.io/experimental/v1/${version}/wizcli-linux-amd64 && chmod +x wizcli
+          echo "WIZCLI_PATH=$(pwd)/wizcli" >> $GITHUB_ENV
+
+      # - name: Authenticate Wiz CLI
+      #   if: success() || (failure() && matrix.environment == 'develop')
+      #   run: ${{ env.WIZCLI_PATH }} auth --id "${{ env.WIZ_CLIENT_ID }}" --secret "${{ env.WIZ_CLIENT_SECRET }}"
+      #   env:
+      #     WIZ_ENV: "demo"
+      #   continue-on-error: true
+
+      - name: Run Wiz Security Scan
+        if: success() || (failure() && env.DEPLOY_ENV == 'develop')
+        run: |
+          sudo -E ${{ env.WIZCLI_PATH }} scan container-image \
+            "${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ vars.IMAGE_TAG }}" \
+            --dockerfile "./dockerfiles/${{ matrix.dockerfile }}/Dockerfile" \
+            --driver mountWithLayers
+        env:
+          WIZ_ENV: "demo"
+        continue-on-error: true
+
+      - name: Tag Image in Wiz
+        if: success() || (failure() && env.DEPLOY_ENV == 'develop')
+        run: sudo -E ${{ env.WIZCLI_PATH }} tag --driver mountWithLayers "${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ vars.IMAGE_TAG }}"
         env:
           WIZ_ENV: "demo"
         continue-on-error: true
 
       - name: Handle Development Environment Issues
-        if: failure()
+        if: failure() && env.DEPLOY_ENV == 'develop'
         run: |
           echo "::error::Build failed for develop environment"
           echo "::error::This may be due to ephemeral GAR registry issues. Please check:"
@@ -203,5 +197,4 @@ jobs:
           echo "::error::  - Create a new develop GAR registry"
           echo "::error::  - Update the 'scenarios_gar-registry-develop' entry in 1Password with new registry details"
           echo "::error::  - Or remove the 1Password entry if develop environment is no longer needed"
-          exit 1
-         
+

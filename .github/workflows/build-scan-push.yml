@@ -20,9 +20,9 @@ on:
       - main
       - staging
       - develop
-    paths:
-      - app/**
-      - dockerfiles/**
+    # paths:
+    #   - app/**
+    #   - dockerfiles/**
 
 permissions:
   id-token: write

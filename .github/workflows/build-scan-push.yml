@@ -147,10 +147,10 @@ jobs:
             ${{ matrix.dockerfile == 'wizos' && 'id=WIZOS_CLIENT_SECRET,env=WIZ_OS_CLIENT_SECRET' || '' }}
         # continue-on-error: ${{ env.DEPLOY_ENV == 'develop' }}
 
-      # - name: Pull Image for Scanning
-      #   if: success() || (failure() && env.DEPLOY_ENV == 'develop')
-      #   run: docker pull ${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ vars.IMAGE_TAG }}
-      #   continue-on-error: true
+      - name: Pull Image for Scanning
+        if: success() || (failure() && env.DEPLOY_ENV == 'develop')
+        run: docker pull ${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ vars.IMAGE_TAG }}
+        continue-on-error: true
 
       - name: Install Wiz CLI
         if: success() || (failure() && env.DEPLOY_ENV == 'develop')
@@ -169,7 +169,7 @@ jobs:
       - name: Run Wiz Security Scan
         if: success() || (failure() && env.DEPLOY_ENV == 'develop')
         run: |
-          sudo -E ${{ env.WIZCLI_PATH }} scan container-image "${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ vars.IMAGE_TAG }}" --dockerfile "./dockerfiles/${{ matrix.dockerfile }}/Dockerfile" --driver mountWithLayers
+          sudo -E ${{ env.WIZCLI_PATH }} scan container-image "${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ vars.IMAGE_TAG }}" --dockerfile "./dockerfiles/${{ matrix.dockerfile }}/Dockerfile"
         env:
           WIZ_ENV: "demo"
         continue-on-error: true
@@ -177,7 +177,7 @@ jobs:
       - name: Tag Image in Wiz
         if: success() || (failure() && env.DEPLOY_ENV == 'develop')
         run: |
-          sudo -E ${{ env.WIZCLI_PATH }} tag --driver mountWithLayers "${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ vars.IMAGE_TAG }}"
+          sudo -E ${{ env.WIZCLI_PATH }} tag "${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ vars.IMAGE_TAG }}"
         env:
           WIZ_ENV: "demo"
         continue-on-error: true

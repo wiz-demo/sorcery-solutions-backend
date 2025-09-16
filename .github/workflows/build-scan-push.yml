@@ -56,14 +56,12 @@ jobs:
         with:
           export-env: true
         env:
-          IMAGE_REGISTRY: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/registryUrl
-          REGISTRY_REGION: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/registryRegion
-          WIF_PROVIDER: projects/649658276695/locations/global/workloadIdentityPools/github-pool1/providers/github-provider
-          WIF_SERVICE_ACCOUNT: gar-pusher@clgcporg156-p001.iam.gserviceaccount.com
-#          WIF_PROVIDER: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/workloadIdentityProvider
-#          WIF_SERVICE_ACCOUNT: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/pusherServiceAccount
-          WIZ_CLIENT_ID: op://wiz-demo/tenant_adv-${{ env.DEPLOY_ENV == 'staging' && 'stg-' || '' }}sa/username
-          WIZ_CLIENT_SECRET: op://wiz-demo/tenant_adv-${{ env.DEPLOY_ENV == 'staging' && 'stg-' || '' }}sa/credential
+          IMAGE_REGISTRY: op://wiz-demo/tenant_adv-test-gar/registryUrl
+          REGISTRY_REGION: op://wiz-demo/tenant_adv-test-gar/registryRegion
+          WIF_PROVIDER: op://wiz-demo/tenant_adv-test-gar/workloadIdentityProvider
+          WIF_SERVICE_ACCOUNT: op://wiz-demo/tenant_adv-test-gar/pusherServiceAccount
+          WIZ_CLIENT_ID: op://wiz-demo/tenant_adv-stg-sa/username
+          WIZ_CLIENT_SECRET: op://wiz-demo/tenant_adv-stg-sa/credential
           WIZ_OS_REGISTRY: op://wiz-demo/tenant_csatest-wizos-registry-credentials/registryUrl
           WIZ_OS_USER: op://wiz-demo/tenant_csatest-wizos-registry-credentials/username
           WIZ_OS_PASSWORD: op://wiz-demo/tenant_csatest-wizos-registry-credentials/credential
@@ -102,7 +100,7 @@ jobs:
 
       - name: Collect Docker Metadata
         id: meta
-        uses: docker/metadata-action@96383f45573cb7c3e6877137f96c57d28f3c663f
+        uses: docker/metadata-action@c1e51972afc2121e065aed6d45c65596fe445f3f
         with:
           images: ${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}
           tags: |

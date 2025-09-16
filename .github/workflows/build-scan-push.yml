@@ -60,8 +60,8 @@ jobs:
           REGISTRY_REGION: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/registryRegion
           WIF_PROVIDER: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/workloadIdentityProvider
           WIF_SERVICE_ACCOUNT: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/pusherServiceAccount
-          WIZ_CLIENT_ID: op://wiz-demo/tenant_adv-stg-sa/username
-          WIZ_CLIENT_SECRET: op://wiz-demo/tenant_adv-stg-sa/credential
+          WIZ_CLIENT_ID: op://wiz-demo/tenant_adv-stg-wizcli-sa/username
+          WIZ_CLIENT_SECRET: op://wiz-demo/tenant_adv-stg-wizcli-sa/password
           WIZ_OS_REGISTRY: op://wiz-demo/tenant_csatest-wizos-registry-credentials/registryUrl
           WIZ_OS_USER: op://wiz-demo/tenant_csatest-wizos-registry-credentials/username
           WIZ_OS_PASSWORD: op://wiz-demo/tenant_csatest-wizos-registry-credentials/credential

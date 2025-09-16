@@ -116,6 +116,8 @@ jobs:
         with:
           workload_identity_provider: ${{ env.WIF_PROVIDER }}
           service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
+          token_format: 'access_token'
+          audience: 'https://token.actions.githubusercontent.com'
         continue-on-error: ${{ env.DEPLOY_ENV == 'develop' }}
 
       - name: Login to Container Registry

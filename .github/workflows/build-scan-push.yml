@@ -117,11 +117,17 @@ jobs:
           workload_identity_provider: ${{ env.WIF_PROVIDER }}
           service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
           token_format: 'access_token'
-          audience: 'https://token.actions.githubusercontent.com'
         continue-on-error: ${{ env.DEPLOY_ENV == 'develop' }}
 
-      - name: Login to Container Registry
-        run: gcloud auth configure-docker ${{ env.REGISTRY_REGION }}-docker.pkg.dev
+      - name: Set up Cloud SDK
+        uses: 'google-github-actions/setup-gcloud@v2'
+
+      - name: Log in to Google Artifact Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY_REGION }}-docker.pkg.dev
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
         continue-on-error: ${{ env.DEPLOY_ENV == 'develop' }}
 
       - name: Login to Wiz OS Container Registry
@@ -147,10 +153,10 @@ jobs:
             ${{ matrix.dockerfile == 'wizos' && 'id=WIZOS_CLIENT_SECRET,env=WIZ_OS_CLIENT_SECRET' || '' }}
         continue-on-error: ${{ env.DEPLOY_ENV == 'develop' }}
 
-      - name: Pull Image for Scanning
-        if: success() || (failure() && env.DEPLOY_ENV == 'develop')
-        run: docker pull ${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ vars.IMAGE_TAG }}
-        continue-on-error: true
+      # - name: Pull Image for Scanning
+      #   if: success() || (failure() && env.DEPLOY_ENV == 'develop')
+      #   run: docker pull ${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ vars.IMAGE_TAG }}
+      #   continue-on-error: true
 
       - name: Install Wiz CLI
         if: success() || (failure() && env.DEPLOY_ENV == 'develop')
@@ -169,17 +175,15 @@ jobs:
       - name: Run Wiz Security Scan
         if: success() || (failure() && env.DEPLOY_ENV == 'develop')
         run: |
-          sudo -E ${{ env.WIZCLI_PATH }} scan container-image \
-            "${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ vars.IMAGE_TAG }}" \
-            --dockerfile "./dockerfiles/${{ matrix.dockerfile }}/Dockerfile" \
-            --driver mountWithLayers
+          sudo -E ${{ env.WIZCLI_PATH }} scan container-image "${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ vars.IMAGE_TAG }}" --dockerfile "./dockerfiles/${{ matrix.dockerfile }}/Dockerfile" --driver mountWithLayers
         env:
           WIZ_ENV: "demo"
         continue-on-error: true
 
       - name: Tag Image in Wiz
         if: success() || (failure() && env.DEPLOY_ENV == 'develop')
-        run: sudo -E ${{ env.WIZCLI_PATH }} tag --driver mountWithLayers "${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ vars.IMAGE_TAG }}"
+        run: |
+          sudo -E ${{ env.WIZCLI_PATH }} tag --driver mountWithLayers "${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ vars.IMAGE_TAG }}"
         env:
           WIZ_ENV: "demo"
         continue-on-error: true

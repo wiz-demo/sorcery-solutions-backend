@@ -117,7 +117,7 @@ jobs:
           workload_identity_provider: ${{ env.WIF_PROVIDER }}
           service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
           token_format: 'access_token'
-        continue-on-error: ${{ env.DEPLOY_ENV == 'develop' }}
+        # continue-on-error: ${{ env.DEPLOY_ENV == 'develop' }}
 
 
       - name: Log in to Google Artifact Registry
@@ -126,11 +126,11 @@ jobs:
           registry: ${{ env.REGISTRY_REGION }}-docker.pkg.dev
           username: oauth2accesstoken
           password: ${{ steps.auth.outputs.access_token }}
-        continue-on-error: ${{ env.DEPLOY_ENV == 'develop' }}
+        # continue-on-error: ${{ env.DEPLOY_ENV == 'develop' }}
 
       - name: Login to Wiz OS Container Registry
         run: docker login ${{ env.WIZ_OS_REGISTRY }} -u ${{ env.WIZ_OS_USER }} -p ${{ env.WIZ_OS_PASSWORD }}
-        continue-on-error: true
+        # continue-on-error: true
 
       - name: Build and Push Docker Image
         id: build-image
@@ -149,7 +149,7 @@ jobs:
           secrets: |
             ${{ matrix.dockerfile == 'wizos' && 'id=WIZOS_CLIENT_ID,env=WIZ_OS_CLIENT_ID' || '' }}
             ${{ matrix.dockerfile == 'wizos' && 'id=WIZOS_CLIENT_SECRET,env=WIZ_OS_CLIENT_SECRET' || '' }}
-        continue-on-error: ${{ env.DEPLOY_ENV == 'develop' }}
+        # continue-on-error: ${{ env.DEPLOY_ENV == 'develop' }}
 
       # - name: Pull Image for Scanning
       #   if: success() || (failure() && env.DEPLOY_ENV == 'develop')

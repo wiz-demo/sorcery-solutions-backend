@@ -56,10 +56,10 @@ jobs:
         with:
           export-env: true
         env:
-          IMAGE_REGISTRY: op://wiz-demo/tenant_adv-test-gar/registryUrl
-          REGISTRY_REGION: op://wiz-demo/tenant_adv-test-gar/registryRegion
-          WIF_PROVIDER: op://wiz-demo/tenant_adv-test-gar/workloadIdentityProvider
-          WIF_SERVICE_ACCOUNT: op://wiz-demo/tenant_adv-test-gar/pusherServiceAccount
+          IMAGE_REGISTRY: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/registryUrl
+          REGISTRY_REGION: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/registryRegion
+          WIF_PROVIDER: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/workloadIdentityProvider
+          WIF_SERVICE_ACCOUNT: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/pusherServiceAccount
           WIZ_CLIENT_ID: op://wiz-demo/tenant_adv-stg-sa/username
           WIZ_CLIENT_SECRET: op://wiz-demo/tenant_adv-stg-sa/credential
           WIZ_OS_REGISTRY: op://wiz-demo/tenant_csatest-wizos-registry-credentials/registryUrl
@@ -116,7 +116,6 @@ jobs:
         with:
           workload_identity_provider: ${{ env.WIF_PROVIDER }}
           service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
-          token_format: 'access_token'
         # continue-on-error: ${{ env.DEPLOY_ENV == 'develop' }}
 
 

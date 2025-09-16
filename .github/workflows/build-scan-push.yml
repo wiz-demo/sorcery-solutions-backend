@@ -156,7 +156,7 @@ jobs:
         if: success() || (failure() && env.DEPLOY_ENV == 'develop')
         run: |
           echo "Downloading Wiz CLI..."
-          curl -o wizcli ${{ .env.WIZCLI_URL }} && chmod +x wizcli
+          curl -o wizcli ${{ env.WIZCLI_URL }} && chmod +x wizcli
           echo "WIZCLI_PATH=$(pwd)/wizcli" >> $GITHUB_ENV
 
       # - name: Authenticate Wiz CLI

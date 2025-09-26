@@ -84,7 +84,7 @@ jobs:
       - name: Cache Wiz configuration and rules
         uses: actions/cache@v4
         with:
-          path: ~/.wiz/
+          path: ~/.wiz/demo_clusterFilesCache
           key: ${{ runner.os }}-wiz-config-${{ hashFiles('**/wizcli-dynamic-comparison.yaml') }}
           restore-keys: |
             ${{ runner.os }}-wiz-config-

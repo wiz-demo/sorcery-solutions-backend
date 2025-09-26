@@ -77,7 +77,7 @@ jobs:
           path: |
             ~/.cache/wizcli
             wizcli-*
-          key: ${{ runner.os }}-wizcli-downloads-${{ hashFiles('**/wizcli-dynamic-comparison.yaml') }}
+          key: ${{ runner.os }}-wizcli-downloads-${{ hashFiles('**/build-scan-push.yml') }}
           restore-keys: |
             ${{ runner.os }}-wizcli-downloads-
 
@@ -85,7 +85,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.wiz/demo_clusterFilesCache
-          key: ${{ runner.os }}-wiz-config-${{ hashFiles('**/wizcli-dynamic-comparison.yaml') }}
+          key: ${{ runner.os }}-wiz-config-${{ hashFiles('**/build-scan-push.yml') }}
           restore-keys: |
             ${{ runner.os }}-wiz-config-
 

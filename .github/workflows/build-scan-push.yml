@@ -248,14 +248,14 @@ jobs:
             ${{ runner.os }}-wiz-config-
 
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@ba454b8ab46733eb6145342877cd148270bb77ab #v2.23.5
+        uses: github/codeql-action/upload-sarif@3137bdd0c29a5dffa22c804c760b483206977a38ac787f03ef3194e8090244fe #v4.31.2
         with:
           sarif_file: ${{ env.IMAGE_NAME_SANITIZED }}-${{ matrix.dockerfile }}-${{ github.run_id }}-sarif.json
           category: wiz-${{ matrix.dockerfile }}
         continue-on-error: true
 
       - name: Upload SBOM file
-        uses: actions/upload-artifact@ba454b8ab46733eb6145342877cd148270bb77ab #v2.23.5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 #v5.0.0
         with:
           name: sbom-${{ env.IMAGE_NAME_SANITIZED }}-${{ matrix.dockerfile }}-${{ github.run_id }}
           path: ${{ env.IMAGE_NAME_SANITIZED }}-${{ matrix.dockerfile }}-${{ github.run_id }}-sbom.json

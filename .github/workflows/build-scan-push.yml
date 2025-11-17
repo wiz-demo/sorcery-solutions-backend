@@ -226,17 +226,19 @@ jobs:
         run: |
           echo "Checking for cluster files cache after scan..."
           CACHE_DIR="$HOME/.wiz/clusterFilesCache"
-          if [ -f "$CACHE_DIR/clusterFiles.tar.gz" ]; then
+          if [ -d "$CACHE_DIR" ] && [ -f "$CACHE_DIR/clusterFiles.tar.gz" ]; then
             CLUSTER_SHA256=$(sha256sum "$CACHE_DIR/clusterFiles.tar.gz" | cut -d' ' -f1)
             echo "Cluster files SHA256: $CLUSTER_SHA256"
             echo "sha256=$CLUSTER_SHA256" >> $GITHUB_OUTPUT
+            echo "cache_exists=true" >> $GITHUB_OUTPUT
           else
             echo "No cluster files cache found after scan"
             echo "sha256=no-cache" >> $GITHUB_OUTPUT
+            echo "cache_exists=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Cache Wiz configuration and rules
-        if: always() && steps.get-cluster-sha256.outputs.sha256 != 'no-cache'
+        if: always() && steps.get-cluster-sha256.outputs.cache_exists == 'true'
         uses: actions/cache@v4
         with:
           path: ~/.wiz/clusterFilesCache

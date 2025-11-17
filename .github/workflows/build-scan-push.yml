@@ -74,6 +74,13 @@ jobs:
           # WIZ_OS_CLIENT_ID: op://wiz-demo/tenant_adv-${{ env.DEPLOY_ENV == 'staging' && 'stg-' || '' }}-wizos-apk-credentials/username
           # WIZ_OS_CLIENT_SECRET: op://wiz-demo/tenant_adv-${{ env.DEPLOY_ENV == 'staging' && 'stg-' || '' }}-wizos-apk-credentials/credential
 
+      - name: Normalize IMAGE_NAME for file paths
+        run: |
+          # Replace slashes with dashes for use in file paths (GAR allows slashes in repo paths, but filenames can't have them)
+          SANITIZED_NAME="${{ vars.IMAGE_NAME }}"
+          SANITIZED_NAME="${SANITIZED_NAME//\//-}"
+          echo "IMAGE_NAME_SANITIZED=${SANITIZED_NAME}" >> $GITHUB_ENV
+
       - name: Get Wiz CLI SHA256
         id: get-sha256
         run: |
@@ -181,14 +188,17 @@ jobs:
       - name: Run Wiz Security Scan
         if: success() || (failure() && env.DEPLOY_ENV == 'develop')
         run: |
+          SARIF_FILE="${{ env.IMAGE_NAME_SANITIZED }}-${{ matrix.dockerfile }}-${{ github.run_id }}-sarif.json"
+          SBOM_FILE="${{ env.IMAGE_NAME_SANITIZED }}-${{ matrix.dockerfile }}-${{ github.run_id }}-sbom.json"
+
           sudo -E ${{ env.WIZCLI_PATH }} scan container-image "${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ vars.IMAGE_TAG }}" \
             --dockerfile "./dockerfiles/${{ matrix.dockerfile }}/Dockerfile" \
             --tag github_action_run_id=${{ github.run_id }} \
             --tag dockerfile=${{ matrix.dockerfile }} \
             --tag environment=${{ env.DEPLOY_ENV }} \
-            --sarif-output-file "${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}-${{ github.run_id }}-sarif.json" \
+            --sarif-output-file "$SARIF_FILE" \
             --sbom-format spdx-json \
-            --sbom-output-file "${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}-${{ github.run_id }}-sbom.json"
+            --sbom-output-file "$SBOM_FILE"
         env:
           WIZ_ENV: "demo"
         continue-on-error: ${{ env.DEPLOY_ENV == 'develop' }}
@@ -238,15 +248,15 @@ jobs:
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: "${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}-${{ github.run_id }}-sarif.json"
+          sarif_file: ${{ env.IMAGE_NAME_SANITIZED }}-${{ matrix.dockerfile }}-${{ github.run_id }}-sarif.json
           category: wiz-${{ matrix.dockerfile }}
         continue-on-error: true
 
       - name: Upload SBOM file
         uses: actions/upload-artifact@v4
         with:
-          name: sbom-${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}-${{ github.run_id }}
-          path: "${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}-${{ github.run_id }}-sbom.json"
+          name: sbom-${{ env.IMAGE_NAME_SANITIZED }}-${{ matrix.dockerfile }}-${{ github.run_id }}
+          path: ${{ env.IMAGE_NAME_SANITIZED }}-${{ matrix.dockerfile }}-${{ github.run_id }}-sbom.json
           retention-days: 30
         continue-on-error: true
 

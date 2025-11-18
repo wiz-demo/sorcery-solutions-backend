@@ -239,8 +239,8 @@ jobs:
           key: ${{ runner.os }}-wiz-config-${{ env.WIZ_ENV || 'default' }}-${{ matrix.dockerfile }}-${{ env.DEPLOY_ENV }}
           restore-keys: |
             ${{ runner.os }}-wiz-config-${{ env.WIZ_ENV || 'default' }}-${{ matrix.dockerfile }}-${{ env.DEPLOY_ENV }}
-            ${{ runner.os }}-wiz-config-${{ env.WIZ_ENV || 'default' }}-
-            ${{ runner.os }}-wiz-config-
+            ${{ runner.os }}-wiz-config-${{ env.WIZ_ENV || 'default' }}-${{ matrix.dockerfile }}-
+            ${{ runner.os }}-wiz-config-${{ matrix.dockerfile }}-
 
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v4

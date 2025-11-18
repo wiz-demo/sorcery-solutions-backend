@@ -8,13 +8,12 @@ on:
         required: false
         type: choice
         options:
-        - staging
-        - main
-        - develop
+        - advanced
+        - stgadvanced
       versions:
         description: 'WizCLI version to use for scanning'
         required: true
-        default: '1.8.0'
+        default: '1.15.0'
   push:
     branches:
       - main
@@ -248,9 +247,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.wiz/${{ (env.WIZ_ENV == '' || env.WIZ_ENV == 'app') && 'clusterFilesCache' || format('{0}_clusterFilesCache', env.WIZ_ENV) }}
-          key: ${{ runner.os }}-wiz-config-${{ env.WIZ_ENV || 'default' }}-${{ env.DEPLOY_ENV }}
+          key: ${{ runner.os }}-wiz-config-${{ env.WIZ_ENV || 'default' }}-${{ matrix.dockerfile }}-${{ env.DEPLOY_ENV }}
           restore-keys: |
-            ${{ runner.os }}-wiz-config-${{ env.WIZ_ENV || 'default' }}-${{ env.DEPLOY_ENV }}
+            ${{ runner.os }}-wiz-config-${{ env.WIZ_ENV || 'default' }}-${{ matrix.dockerfile }}-${{ env.DEPLOY_ENV }}
             ${{ runner.os }}-wiz-config-${{ env.WIZ_ENV || 'default' }}-
             ${{ runner.os }}-wiz-config-
 

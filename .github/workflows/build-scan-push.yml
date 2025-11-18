@@ -34,9 +34,10 @@ permissions:
 env:
   DEPLOY_ENV: ${{
     github.event_name == 'workflow_dispatch' && github.event.inputs.environment ||
-    (github.ref == 'refs/heads/main' && 'production') ||
+    (github.ref == 'refs/heads/main' && 'advanced') ||
     (github.ref == 'refs/heads/develop' && 'develop') ||
-    'staging' }}
+    (github.ref == 'refs/heads/staging' && 'stgadvanced') ||
+    'test' }}
   WIZ_ENV: "demo"
 
 jobs:
@@ -60,18 +61,18 @@ jobs:
         with:
           export-env: true
         env:
-          IMAGE_REGISTRY: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/registryUrl
-          REGISTRY_REGION: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/registryRegion
-          WIF_PROVIDER: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/workloadIdentityProvider
-          WIF_SERVICE_ACCOUNT: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/pusherServiceAccount
-          WIZ_CLIENT_ID: op://wiz-demo/tenant_adv-stg-wizcli-sa/username
-          WIZ_CLIENT_SECRET: op://wiz-demo/tenant_adv-stg-wizcli-sa/password
-          WIZ_OS_REGISTRY: op://wiz-demo/tenant_csatest-wizos-registry-credentials/registryUrl
-          WIZ_OS_USER: op://wiz-demo/tenant_csatest-wizos-registry-credentials/username
+          IMAGE_REGISTRY: op://wiz-demo/gar_{{ env.DEPLOY_ENV }}-registry/registryUrl
+          REGISTRY_REGION: op://wiz-demo/gar_{{ env.DEPLOY_ENV }}-registry/registryRegion
+          WIF_PROVIDER: op://wiz-demo/gar_{{ env.DEPLOY_ENV }}-registry/workloadIdentityProvider
+          WIF_SERVICE_ACCOUNT: op://wiz-demo/gar_{{ env.DEPLOY_ENV }}-registry/pusherServiceAccount
+          WIZ_CLIENT_ID: op://wiz-demo/tenant_${{ env.DEPLOY_ENV}}-wizcli-sa/username
+          WIZ_CLIENT_SECRET: op://wiz-demo/tenant_${{ env.DEPLOY_ENV }}-wizcli-sa/password
+          WIZCLI_URL: op://wiz-demo/tenant_${{ env.DEPLOY_ENV }}-wizcli-sa//wizcliUrl
+          WIZ_OS_REGISTRY: op://wiz-demo/tenant_csatest-wizos-registry-credentials/registryUrl           # Has to stay here until we get registry credentials in demo tenants
+          WIZ_OS_USER: op://wiz-demo/tenant_csatest-wizos-registry-credentials/username                  # Has to stay here until we get registry credentials in demo tenants
           WIZ_OS_PASSWORD: op://wiz-demo/tenant_csatest-wizos-registry-credentials/credential
-          WIZ_OS_CLIENT_ID: op://wiz-demo/tenant_adv-stg-wizos-apk-credentials/username
-          WIZ_OS_CLIENT_SECRET: op://wiz-demo/tenant_adv-stg-wizos-apk-credentials/credential
-          WIZCLI_URL: op://wiz-demo/scenarios_gar-registry-${{ env.DEPLOY_ENV }}/wizcliUrl
+          WIZ_OS_CLIENT_ID: op://wiz-demo/tenant_${{ env.DEPLOY_ENV }}-wizos-apk-credentials/username
+          WIZ_OS_CLIENT_SECRET: op://wiz-demo/tenant_${{ env.DEPLOY_ENV }}-wizos-apk-credentials/credential
           # WIZ_OS_CLIENT_ID: op://wiz-demo/tenant_adv-${{ env.DEPLOY_ENV == 'staging' && 'stg-' || '' }}-wizos-apk-credentials/username
           # WIZ_OS_CLIENT_SECRET: op://wiz-demo/tenant_adv-${{ env.DEPLOY_ENV == 'staging' && 'stg-' || '' }}-wizos-apk-credentials/credential
 

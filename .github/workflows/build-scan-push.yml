@@ -67,7 +67,7 @@ jobs:
           WIF_SERVICE_ACCOUNT: op://wiz-demo/gar_${{ env.DEPLOY_ENV }}-registry/pusherServiceAccount
           WIZ_CLIENT_ID: op://wiz-demo/tenant_${{ env.DEPLOY_ENV}}-wizcli-sa/username
           WIZ_CLIENT_SECRET: op://wiz-demo/tenant_${{ env.DEPLOY_ENV }}-wizcli-sa/password
-          WIZCLI_URL: op://wiz-demo/tenant_${{ env.DEPLOY_ENV }}-wizcli-sa//wizcliUrl
+          WIZCLI_URL: op://wiz-demo/tenant_${{ env.DEPLOY_ENV }}-wizcli-sa/wizcliUrl
           WIZ_OS_REGISTRY: op://wiz-demo/tenant_csatest-wizos-registry-credentials/registryUrl           # Has to stay here until we get registry credentials in demo tenants
           WIZ_OS_USER: op://wiz-demo/tenant_csatest-wizos-registry-credentials/username                  # Has to stay here until we get registry credentials in demo tenants
           WIZ_OS_PASSWORD: op://wiz-demo/tenant_csatest-wizos-registry-credentials/credential

@@ -100,7 +100,11 @@ jobs:
       - name: Restore Wiz configuration and rules cache
         uses: actions/cache@v4
         with:
-          path: ~/.wiz/clusterFilesCache
+          path: |
+            ~/.wiz/clusterFilesCache
+            /root/.wiz/clusterFilesCache
+            ~/.wiz/cache
+            /root/.wiz/cache
           key: ${{ runner.os }}-wiz-config-${{ env.DEPLOY_ENV }}
           restore-keys: |
             ${{ runner.os }}-wiz-config-${{ env.DEPLOY_ENV }}
@@ -203,6 +207,20 @@ jobs:
           WIZ_ENV: "demo"
         continue-on-error: ${{ env.DEPLOY_ENV == 'develop' }}
 
+      - name: Debug - List Wiz Directory Structure
+        if: always()
+        run: |
+          echo "=== Listing ~/.wiz directory structure ==="
+          ls -laR ~/.wiz/ || echo "~/.wiz directory does not exist"
+          echo ""
+          echo "=== Checking common wizcli cache locations ==="
+          find ~/.wiz -type f -name "*.tar.gz" 2>/dev/null || echo "No .tar.gz files found in ~/.wiz"
+          find ~/.wiz -type f -name "clusterFiles*" 2>/dev/null || echo "No clusterFiles* found in ~/.wiz"
+          find ~/.wiz -type d -name "*cache*" 2>/dev/null || echo "No cache directories found in ~/.wiz"
+          echo ""
+          echo "=== Checking /root/.wiz (in case running as root) ==="
+          sudo ls -laR /root/.wiz/ 2>/dev/null || echo "/root/.wiz directory does not exist"
+
       - name: Push Docker Image (After Scan Pass)
         if: success() || (failure() && env.DEPLOY_ENV == 'develop')
         run: |
@@ -225,24 +243,57 @@ jobs:
         id: get-cluster-sha256
         run: |
           echo "Checking for cluster files cache after scan..."
-          CACHE_DIR="$HOME/.wiz/clusterFilesCache"
-          if [ -d "$CACHE_DIR" ] && [ -f "$CACHE_DIR/clusterFiles.tar.gz" ]; then
-            CLUSTER_SHA256=$(sha256sum "$CACHE_DIR/clusterFiles.tar.gz" | cut -d' ' -f1)
-            echo "Cluster files SHA256: $CLUSTER_SHA256"
+
+          # Check multiple possible locations for wizcli cache
+          POSSIBLE_CACHE_DIRS=(
+            "$HOME/.wiz/clusterFilesCache"
+            "/root/.wiz/clusterFilesCache"
+            "$HOME/.wiz/cache"
+            "/root/.wiz/cache"
+          )
+
+          CACHE_FOUND=false
+          CACHE_DIR=""
+
+          for dir in "${POSSIBLE_CACHE_DIRS[@]}"; do
+            echo "Checking: $dir"
+            if [ -d "$dir" ]; then
+              echo "  Directory exists, checking for files..."
+              # Check for any cache files
+              if [ -n "$(ls -A "$dir" 2>/dev/null)" ]; then
+                echo "  Found cache files in: $dir"
+                CACHE_DIR="$dir"
+                CACHE_FOUND=true
+                break
+              fi
+            fi
+          done
+
+          if [ "$CACHE_FOUND" = true ]; then
+            # Calculate hash of the entire directory for cache key
+            CLUSTER_SHA256=$(find "$CACHE_DIR" -type f -exec sha256sum {} \; | sort | sha256sum | cut -d' ' -f1)
+            echo "Cache directory: $CACHE_DIR"
+            echo "Cache SHA256: $CLUSTER_SHA256"
             echo "sha256=$CLUSTER_SHA256" >> $GITHUB_OUTPUT
             echo "cache_exists=true" >> $GITHUB_OUTPUT
+            echo "cache_dir=$CACHE_DIR" >> $GITHUB_OUTPUT
           else
-            echo "No cluster files cache found after scan"
+            echo "No cluster files cache found in any expected location"
             echo "sha256=no-cache" >> $GITHUB_OUTPUT
             echo "cache_exists=false" >> $GITHUB_OUTPUT
+            echo "cache_dir=" >> $GITHUB_OUTPUT
           fi
 
       - name: Cache Wiz configuration and rules
         if: always() && steps.get-cluster-sha256.outputs.cache_exists == 'true'
         uses: actions/cache@v4
         with:
-          path: ~/.wiz/clusterFilesCache
-          key: ${{ runner.os }}-wiz-config-${{ env.DEPLOY_ENV }}
+          path: |
+            ~/.wiz/clusterFilesCache
+            /root/.wiz/clusterFilesCache
+            ~/.wiz/cache
+            /root/.wiz/cache
+          key: ${{ runner.os }}-wiz-config-${{ env.DEPLOY_ENV }}-${{ steps.get-cluster-sha256.outputs.sha256 }}
           restore-keys: |
             ${{ runner.os }}-wiz-config-${{ env.DEPLOY_ENV }}
             ${{ runner.os }}-wiz-config-

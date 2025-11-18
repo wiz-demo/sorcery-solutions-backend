@@ -36,7 +36,7 @@ env:
     github.event_name == 'workflow_dispatch' && github.event.inputs.environment ||
     (github.ref == 'refs/heads/main' && 'advanced') ||
     (github.ref == 'refs/heads/develop' && 'develop') ||
-    (github.ref == 'refs/heads/staging' && 'stgadvanced')
+    (github.ref == 'refs/heads/staging' && 'stgadvanced') ||
     'test' }}
   WIZ_ENV: "demo"
 

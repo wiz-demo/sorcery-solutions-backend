@@ -38,6 +38,7 @@ env:
     (github.ref == 'refs/heads/staging' && 'stgadvanced') ||
     'test' }}
   WIZ_ENV: "demo"
+  IMAGE_NAME: "${{ github.event.repository.name }}"
 
 jobs:
   build-and-scan:
@@ -75,12 +76,12 @@ jobs:
           # WIZ_OS_CLIENT_ID: op://wiz-demo/tenant_adv-${{ env.DEPLOY_ENV == 'staging' && 'stg-' || '' }}-wizos-apk-credentials/username
           # WIZ_OS_CLIENT_SECRET: op://wiz-demo/tenant_adv-${{ env.DEPLOY_ENV == 'staging' && 'stg-' || '' }}-wizos-apk-credentials/credential
 
-      - name: Normalize IMAGE_NAME for file paths
-        run: |
-          # Replace slashes with dashes for use in file paths (GAR allows slashes in repo paths, but filenames can't have them)
-          SANITIZED_NAME="${{ vars.IMAGE_NAME }}"
-          SANITIZED_NAME="${SANITIZED_NAME//\//-}"
-          echo "IMAGE_NAME_SANITIZED=${SANITIZED_NAME}" >> $GITHUB_ENV
+      # - name: Normalize IMAGE_NAME for file paths
+      #   run: |
+      #     # Replace slashes with dashes for use in file paths (GAR allows slashes in repo paths, but filenames can't have them)
+      #     SANITIZED_NAME="${{ vars.IMAGE_NAME }}"
+      #     SANITIZED_NAME="${SANITIZED_NAME//\//-}"
+      #     echo "IMAGE_NAME_SANITIZED=${SANITIZED_NAME}" >> $GITHUB_ENV
 
       - name: Get Wiz CLI SHA256
         id: get-sha256
@@ -116,13 +117,13 @@ jobs:
         run: |
           echo "Building ${{ matrix.dockerfile }} variant for ${{ env.DEPLOY_ENV }} environment"
           echo "Dockerfile: ./dockerfiles/${{ matrix.dockerfile }}/Dockerfile"
-          echo "Image: ${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}"
+          echo "Image: ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}"
 
       - name: Collect Docker Metadata
         id: meta
         uses: docker/metadata-action@c1e51972afc2121e065aed6d45c65596fe445f3f
         with:
-          images: ${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}
+          images: ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -157,17 +158,17 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           cache-from: |
-            type=gha,scope=${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}-${{ env.DEPLOY_ENV }}
-            type=gha,scope=${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}
-          cache-to: type=gha,mode=max,scope=${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}-${{ env.DEPLOY_ENV }}
+            type=gha,scope=${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}-${{ env.DEPLOY_ENV }}
+            type=gha,scope=${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}
+          cache-to: type=gha,mode=max,scope=${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}-${{ env.DEPLOY_ENV }}
           context: ./
           file: ./dockerfiles/${{ matrix.dockerfile }}/Dockerfile
           platforms: linux/amd64
           load: true
           push: false
           tags: |
-            ${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ vars.IMAGE_TAG }}
-            ${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ env.DEPLOY_ENV }}-${{ github.sha }}
+            ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ vars.IMAGE_TAG }}
+            ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ env.DEPLOY_ENV }}-${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
           secrets: |
             ${{ matrix.dockerfile == 'wizos' && 'id=WIZOS_CLIENT_ID,env=WIZ_OS_CLIENT_ID' || '' }}
@@ -190,10 +191,10 @@ jobs:
       - name: Run Wiz Security Scan
         if: success() || (failure() && env.DEPLOY_ENV == 'develop')
         run: |
-          SARIF_FILE="${{ env.IMAGE_NAME_SANITIZED }}-${{ matrix.dockerfile }}-${{ github.run_id }}-sarif.json"
-          SBOM_FILE="${{ env.IMAGE_NAME_SANITIZED }}-${{ matrix.dockerfile }}-${{ github.run_id }}-sbom.json"
+          # SARIF_FILE="${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}-${{ github.run_id }}-sarif.json"
+          # SBOM_FILE="${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}-${{ github.run_id }}-sbom.json"
 
-          sudo -E ${{ env.WIZCLI_PATH }} scan container-image "${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ vars.IMAGE_TAG }}" \
+          sudo -E ${{ env.WIZCLI_PATH }} scan container-image "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ vars.IMAGE_TAG }}" \
             --dockerfile "./dockerfiles/${{ matrix.dockerfile }}/Dockerfile" \
             --tag github_action_run_id=${{ github.run_id }} \
             --tag dockerfile=${{ matrix.dockerfile }} \
@@ -207,15 +208,15 @@ jobs:
         if: success() || (failure() && env.DEPLOY_ENV == 'develop')
         run: |
           echo "Pushing pre-built image to registry..."
-          docker push "${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ vars.IMAGE_TAG }}"
-          docker push "${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ env.DEPLOY_ENV }}-${{ github.sha }}"
+          docker push "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ vars.IMAGE_TAG }}"
+          docker push "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ env.DEPLOY_ENV }}-${{ github.sha }}"
         continue-on-error: ${{ env.DEPLOY_ENV == 'develop' }}
 
       - name: Tag Image in Wiz (After Push)
         if: success() || (failure() && env.DEPLOY_ENV == 'develop')
         run: |
           echo "Tagging image in Wiz with digest..."
-          sudo -E ${{ env.WIZCLI_PATH }} tag "${{ env.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ vars.IMAGE_TAG }}" --digest "${{ steps.build-image.outputs.digest }}"
+          sudo -E ${{ env.WIZCLI_PATH }} tag "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}:${{ vars.IMAGE_TAG }}" --digest "${{ steps.build-image.outputs.digest }}"
         continue-on-error: ${{ env.DEPLOY_ENV == 'develop' }}
 
       - name: Get Cluster Files Cache SHA256
@@ -256,15 +257,15 @@ jobs:
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: ${{ env.IMAGE_NAME_SANITIZED }}-${{ matrix.dockerfile }}-${{ github.run_id }}-sarif.json
+          sarif_file: ${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}-${{ github.run_id }}-sarif.json
           category: wiz-${{ matrix.dockerfile }}
         continue-on-error: true
 
       - name: Upload SBOM file
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 #v5.0.0
         with:
-          name: sbom-${{ env.IMAGE_NAME_SANITIZED }}-${{ matrix.dockerfile }}-${{ github.run_id }}
-          path: ${{ env.IMAGE_NAME_SANITIZED }}-${{ matrix.dockerfile }}-${{ github.run_id }}-sbom.json
+          name: sbom-${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}-${{ github.run_id }}
+          path: ${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}-${{ github.run_id }}-sbom.json
           retention-days: 30
         continue-on-error: true
 

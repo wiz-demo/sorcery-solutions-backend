@@ -1,4 +1,4 @@
-FROM registry.os.test.wiz.io/python:3.12
+FROM registry.os.wiz.io/python:3.12
 
 WORKDIR /app
 

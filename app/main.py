@@ -23,6 +23,11 @@ app.add_middleware(
 )
 
 
+@app.get("/api/health")
+async def health_check():
+    return {"status": "ok"}
+
+
 @app.post("/api/spells")
 async def cast_spell(spell: Spell):
     spell_doc = spell.dict()

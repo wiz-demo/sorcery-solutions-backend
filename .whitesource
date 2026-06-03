@@ -2,9 +2,10 @@
   "scanSettings": {
     "configMode": "LOCAL",
     "enableReachability": true,
-	"baseBranches": []
+    "baseBranches": []
   },
   "scanSettingsSAST": {
     "enableScan": true,
+    "languages": ["Python"]
   }
 }

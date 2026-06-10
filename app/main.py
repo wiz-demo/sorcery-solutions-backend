@@ -45,6 +45,8 @@ async def get_all_spells():
 
 @app.get("/api/reachability-probe")
 async def reachability_probe():
+    # SHOW-796: exercises requests.api.get so SCA reachability resolves the
+    # vulnerable call path (CVE-2018-18074) from a live API entrypoint.
     try:
         requests.api.get("http://127.0.0.1:9", timeout=0.01)
     except requests.exceptions.RequestException:

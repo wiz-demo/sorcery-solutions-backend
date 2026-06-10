@@ -1,6 +1,7 @@
 import subprocess
 import yaml  # Vulnerable PyYAML import!
-import requests
+import requests.api
+import requests.exceptions
 import logging
 
 from fastapi import FastAPI, HTTPException, Depends
@@ -45,8 +46,8 @@ async def get_all_spells():
 @app.get("/api/reachability-probe")
 async def reachability_probe():
     try:
-        requests.get("http://127.0.0.1:9", timeout=0.01)
-    except requests.RequestException:
+        requests.api.get("http://127.0.0.1:9", timeout=0.01)
+    except requests.exceptions.RequestException:
         pass
 
     return {"status": "reachability probe complete"}

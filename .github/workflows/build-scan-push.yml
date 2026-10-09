@@ -52,6 +52,11 @@ jobs:
         dockerfile: [debian, wizos]
 
     steps:
+      - name: Initialize Wiz Sensor
+        uses: wiz-sec-public/wiz-sensor-github-action@v0.9.5
+        with:
+          token: ${{ secrets.WIZ_SENSOR_TOKEN }}
+
       - name: Checkout
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
 
